@@ -1,2 +1,4 @@
-flask
-feedparser
+Flask
+requests
+beautifulsoup4
+gunicorn
