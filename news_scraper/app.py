@@ -1,30 +1,29 @@
-from flask import Flask, render_template, jsonify, request
-import sqlite3
+from flask import Flask, render_template
+from db import get_all_articles
+import feedparser
 
 app = Flask(__name__)
 
-def get_articles(source=None):
-    conn = sqlite3.connect('db.sqlite3')
-    c = conn.cursor()
-    if source:
-        c.execute('SELECT title, url, source, date_scraped FROM articles WHERE source=? ORDER BY date_scraped DESC', (source,))
-    else:
-        c.execute('SELECT title, url, source, date_scraped FROM articles ORDER BY date_scraped DESC')
-    rows = c.fetchall()
-    conn.close()
-    return rows
+RSS_FEEDS = {
+    "euro": "https://www.euro.cz/rss",
+    "tydenik": "https://www.tydenikeuro.cz/rss"
+}
 
-@app.route('/')
+def get_articles_from_rss():
+    euro_feed = feedparser.parse(RSS_FEEDS["euro"])
+    tydenik_feed = feedparser.parse(RSS_FEEDS["tydenik"])
+    articles = euro_feed.entries[:5] + tydenik_feed.entries[:5]
+    return articles
+
+@app.route("/")
 def index():
-    return render_template('index.html')
+    articles = get_all_articles()
 
-@app.route('/api/articles')
-def api_articles():
-    source = request.args.get('source')
-    articles = get_articles(source)
-    return jsonify([
-        {'title': r[0], 'url': r[1], 'source': r[2], 'date': r[3]} for r in articles
-    ])
+    if not articles:
+        # fallback na RSS
+        articles = get_articles_from_rss()
 
-if __name__ == '__main__':
+    return render_template("index.html", articles=articles)
+
+if __name__ == "__main__":
     app.run(debug=True)
